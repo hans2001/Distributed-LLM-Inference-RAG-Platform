@@ -1,0 +1,134 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: llm_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: rag
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  inference:
+    image: vllm/vllm-openai:latest
+    container_name: llm_inference
+    environment:
+      VLLM_MODEL: ${VLLM_MODEL:-meta-llama/Meta-Llama-3-8B-Instruct}
+    command: >
+      --model ${VLLM_MODEL:-meta-llama/Meta-Llama-3-8B-Instruct}
+      --host 0.0.0.0
+      --port 8001
+      --served-model-name llm
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/v1/models"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+
+  retrieval:
+    build: ./retrieval
+    container_name: llm_retrieval
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/rag
+      EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: retrieval
+    ports:
+      - "8002:8002"
+    depends_on:
+      - postgres
+      - otel-collector
+
+  gateway:
+    build: ./gateway
+    container_name: llm_gateway
+    environment:
+      INFERENCE_BASE_URL: http://inference:8001
+      RETRIEVAL_BASE_URL: http://retrieval:8002
+      LANGGRAPH_BASE_URL: http://orchestrator:8003
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      - inference
+      - retrieval
+      - orchestrator
+      - otel-collector
+
+  orchestrator:
+    build: ./orchestrator
+    container_name: llm_orchestrator
+    environment:
+      RETRIEVAL_BASE_URL: http://retrieval:8002
+      INFERENCE_BASE_URL: http://inference:8001
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: orchestrator
+    ports:
+      - "8003:8003"
+    depends_on:
+      - retrieval
+      - inference
+      - otel-collector
+
+  pipelines:
+    build: ./pipelines
+    container_name: llm_pipelines
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/rag
+      EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: pipelines
+    ports:
+      - "4000:4000"
+    depends_on:
+      - postgres
+      - otel-collector
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.95.0
+    container_name: llm_otel_collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./infra/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.56
+    container_name: llm_jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+    depends_on:
+      - otel-collector
+
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: llm_prometheus
+    volumes:
+      - ./infra/otel/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: llm_grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./infra/otel/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./infra/otel/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+
+volumes:
+  pgdata:

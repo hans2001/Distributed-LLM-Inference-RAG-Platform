@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+*.so
+.venv/
+venv/
+.env
+.env.*
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Docker
+*.pid
+**/tmp/
+
+# Data / DB
+pgdata/
+*.sqlite
+*.db
+
+# Benchmarks / results
+benchmarks/results.json
+benchmarks/*.out
+benchmarks/*.log
+
+# Model/cache
+.cache/
+.cache/**
+**/.cache/
+
+# Dagster
+.dagster/
+
+# Grafana
+infra/otel/grafana/data/
+infra/otel/grafana/logs/
+
+# Compose overrides
+*.override.yml

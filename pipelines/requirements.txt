@@ -1,0 +1,9 @@
+Dagster==1.7.13
+dagster-webserver==1.7.13
+sqlalchemy==2.0.30
+psycopg[binary]==3.1.19
+pgvector==0.2.5
+sentence-transformers==2.7.0
+opentelemetry-api==1.25.0
+opentelemetry-sdk==1.25.0
+opentelemetry-exporter-otlp==1.25.0
