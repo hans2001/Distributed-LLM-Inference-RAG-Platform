@@ -3,7 +3,7 @@ import time
 from typing import Dict, List
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from pydantic import BaseModel
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 
@@ -72,7 +72,8 @@ async def generate(state: GraphState) -> GraphState:
 
 async def validate(state: GraphState) -> GraphState:
     answer = state.get("answer", "")
-    state["valid"] = bool(answer)
+    contexts = state.get("contexts", [])
+    state["valid"] = bool(answer) and bool(contexts)
     return state
 
 
@@ -97,14 +98,17 @@ async def health():
 @app.get("/metrics")
 async def metrics():
     data = generate_latest()
-    return app.response_class(content=data, media_type=CONTENT_TYPE_LATEST)
+    return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 
 
 @app.post("/run")
 async def run(payload: ChatRequest):
     start = time.time()
     query = payload.messages[-1]["content"] if payload.messages else ""
-    result = await app_graph.ainvoke({"query": query, "top_k": payload.top_k})
+    result = await app_graph.ainvoke(
+        {"query": query, "top_k": payload.top_k},
+        config={"configurable": {"thread_id": "default-thread"}},
+    )
     REQUEST_LATENCY.labels("/run").observe(time.time() - start)
     REQUEST_COUNT.labels("/run", "200").inc()
     return {

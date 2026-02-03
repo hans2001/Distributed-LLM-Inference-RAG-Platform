@@ -2,7 +2,7 @@ import os
 from typing import List
 
 from dagster import op, job, RetryPolicy, get_dagster_logger, Definitions
-from sqlalchemy import Column, Integer, String, Text, create_engine
+from sqlalchemy import Column, Integer, String, Text, create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from pgvector.sqlalchemy import Vector
 from sentence_transformers import SentenceTransformer
@@ -51,6 +51,8 @@ def embed_chunks(chunks: List[dict]) -> List[dict]:
 
 @op(retry_policy=RetryPolicy(max_retries=3))
 def write_pgvector(chunks: List[dict]) -> int:
+    with engine.begin() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(bind=engine)
     session = SessionLocal()
     logger = get_dagster_logger()

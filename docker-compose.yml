@@ -16,13 +16,22 @@ services:
   inference:
     image: vllm/vllm-openai:latest
     container_name: llm_inference
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
     environment:
+      HF_TOKEN: ${HF_TOKEN}
+      HUGGING_FACE_HUB_TOKEN: ${HF_TOKEN}
       VLLM_MODEL: ${VLLM_MODEL:-meta-llama/Meta-Llama-3-8B-Instruct}
     command: >
       --model ${VLLM_MODEL:-meta-llama/Meta-Llama-3-8B-Instruct}
       --host 0.0.0.0
       --port 8001
       --served-model-name llm
+      --gpu-memory-utilization 0.8
+      --max-model-len 2048
     ports:
       - "8001:8001"
     healthcheck:
@@ -83,6 +92,8 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/rag
       EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
+      HF_TOKEN: ${HF_TOKEN}
+      HUGGING_FACE_HUB_TOKEN: ${HF_TOKEN}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: pipelines
     ports:

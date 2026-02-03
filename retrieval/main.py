@@ -2,9 +2,9 @@ import os
 import time
 from typing import List
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from pydantic import BaseModel
-from sqlalchemy import Column, Integer, String, Text, create_engine
+from sqlalchemy import Column, Integer, String, Text, create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from pgvector.sqlalchemy import Vector
 from sentence_transformers import SentenceTransformer
@@ -59,6 +59,8 @@ class QueryRequest(BaseModel):
 
 @app.on_event("startup")
 def on_startup():
+    with engine.begin() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(bind=engine)
 
 
@@ -70,7 +72,7 @@ async def health():
 @app.get("/metrics")
 async def metrics():
     data = generate_latest()
-    return app.response_class(content=data, media_type=CONTENT_TYPE_LATEST)
+    return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 
 
 @app.post("/ingest")

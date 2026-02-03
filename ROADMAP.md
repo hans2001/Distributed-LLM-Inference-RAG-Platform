@@ -5,14 +5,38 @@ This roadmap stays intentionally small and production‑minded. Each milestone l
 ## Milestone 1 — Runtime & Serving
 **Goal:** LLM serving is stable, fast, and measurable.
 - [x] vLLM container wired in Docker Compose
-- [ ] Start vLLM container and confirm model load
-- [ ] Verify OpenAI‑compatible endpoints
+- [x] Start vLLM container and confirm model load
+- [x] Verify OpenAI‑compatible endpoints
   - `POST /v1/chat/completions`
   - `GET /v1/models`
-- [ ] Baseline performance test (single user)
+- [x] Baseline performance test (single user)
   - Capture p50/p95 latency and QPS
 - [x] Document serving configuration knobs
   - model name, max tokens, batching settings
+
+## Track — Distributed Serving (Single Machine)
+**Goal:** Demonstrate multi‑service scheduling, queueing, and failover on one GPU node.
+
+### Milestone DS‑1 — Router/Scheduler Service
+- [ ] Router service API contract finalized
+- [ ] Maintain per‑worker health + queue depth
+- [ ] Routing policies: least‑loaded + token‑aware
+- [ ] Backpressure (429) when overloaded
+
+### Milestone DS‑2 — Worker Pool (Replicas)
+- [ ] Run 2 worker replicas with vLLM (separate ports)
+- [ ] Liveness + readiness checks per worker
+- [ ] Per‑worker queue depth metric exposed
+
+### Milestone DS‑3 — Streaming + Failover
+- [ ] SSE streaming through gateway → router → worker
+- [ ] Retry/reroute on worker timeout/crash
+- [ ] Chaos test: kill worker under load, capture recovery time
+
+### Milestone DS‑4 — Performance & Reliability
+- [ ] Measure TTFT, p95/p99 latency, throughput, queue depth
+- [ ] Load test 10–100 concurrent users
+- [ ] Max sustainable concurrency before overload
 
 ## Milestone 2 — Retrieval Foundation
 **Goal:** Reliable vector storage + search.

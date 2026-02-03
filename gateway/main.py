@@ -3,7 +3,7 @@ import time
 from typing import List, Optional
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from pydantic import BaseModel
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 
@@ -53,7 +53,7 @@ async def health():
 @app.get("/metrics")
 async def metrics():
     data = generate_latest()
-    return app.response_class(content=data, media_type=CONTENT_TYPE_LATEST)
+    return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 
 
 @app.post("/ingest")
@@ -73,8 +73,11 @@ async def chat(payload: ChatRequest):
         retr = await client.post(f"{LANGGRAPH_BASE_URL}/run", json=payload.dict())
     REQUEST_LATENCY.labels("/chat").observe(time.time() - start)
     REQUEST_COUNT.labels("/chat", str(retr.status_code)).inc()
-    if "usage" in retr.json():
-        usage = retr.json()["usage"]
+    if retr.status_code != 200:
+        return Response(content=retr.text, status_code=retr.status_code)
+    data = retr.json()
+    if "usage" in data:
+        usage = data["usage"]
         TOKEN_COUNT.labels("input").inc(usage.get("prompt_tokens", 0))
         TOKEN_COUNT.labels("output").inc(usage.get("completion_tokens", 0))
-    return retr.json()
+    return data
